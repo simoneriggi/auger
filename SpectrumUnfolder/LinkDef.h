@@ -11,7 +11,8 @@
 #pragma link C++ class Unfolder_ns::PowerLawPars;
 #pragma link C++ class Unfolder_ns::BrokenPowerLawsPars;
 #pragma link C++ class Unfolder_ns::SmoothCutoffPowerLaws;
-#pragma link C++ class Unfolder_ns::MathUtil+;
+#pragma link C++ class Unfolder_ns::MathUtils+;
+#pragma link C++ class Unfolder_ns::SpectrumUtils+;
 
 /*
 #pragma link C++ class Unfolder_ns::ForwardFolder+;
