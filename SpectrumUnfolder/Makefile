@@ -17,8 +17,7 @@ OBJDIR  = $(TOPDIR)/obj
 USER_SRCS = $(wildcard $(SRCDIR)/*.cc)
 files := $(foreach USER_SRCS,$(SRCDIR),$(USER_SRCS))
 
-##HEADERS_DICT = $(INCDIR)/ForwardFolder.h $(INCDIR)/ResponseMatrix.h $(INCDIR)/MathUtil.h
-HEADERS_DICT = $(INCDIR)/MathUtils.h $(INCDIR)/SpectrumUtils.h
+HEADERS_DICT = $(INCDIR)/MathUtils.h $(INCDIR)/SpectrumUtils.h $(INCDIR)/ForwardFolder.h
 
 OBJS = $(USER_SRCS:.cc=.o)
 
@@ -121,7 +120,7 @@ Make-depend: $(USER_SRCS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MM $^ > $@
 
 clean:
-	- rm -f $(EXE) $(UNFOLD_EXE) *.o $(OBJDIR)/*.o $(SRCDIR)/*.o ClassDictionary.cc ClassDictionary.h ClassDictionary_rdict.pcm $(BINDIR)/*.o *.so $(LIBDIR)/*.so *.ps core Make-depend
+	- rm -f $(EXE) $(UNFOLD_EXE) *.o $(OBJDIR)/*.o $(SRCDIR)/*.o ClassDictionary.cc ClassDictionary.h $(LIBDIR)/ClassDictionary_rdict.pcm $(BINDIR)/*.o *.so $(LIBDIR)/*.so *.ps core Make-depend
 
 
 #############################################################

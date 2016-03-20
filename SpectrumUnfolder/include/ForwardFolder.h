@@ -63,6 +63,7 @@ class ForwardFolder : public TObject {
 		static TH1D* fCurrentRecSpectrum;		
 		static TH1D* fTrueSpectrum;
 		static TH1D* fForwardFoldedSpectrum;
+		static TH1D* fCurrentForwardFoldedSpectrum;
 		TH1D* fUnfoldedSpectrum;
 		static TH2D* fResponseMatrix;
 		int fNTrueBins;
@@ -80,15 +81,7 @@ class ForwardFolder : public TObject {
 		static bool fUseFitRange;
 		static double fLgEMin_fit;
 		static double fLgEMax_fit;
-		static bool fFixParAboveAnkle;
-		static bool fFixParBelowAnkle;
-		static bool fFitBelowAnkle;
-		int fNToysForSystUncertainty;
-		bool fPropagateUncertainty;
-		bool fPropagateECalSystUncertainty;
-		bool fPropagateMatrixSystUncertainty;
-		double fExposureSystUncertainty;
-
+		
 		//Fit results
 		int fFitStatus;
 		static const int NMAXFITTEDPARS= 10;

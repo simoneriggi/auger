@@ -14,10 +14,8 @@
 #pragma link C++ class Unfolder_ns::MathUtils+;
 #pragma link C++ class Unfolder_ns::SpectrumUtils+;
 
-/*
+
 #pragma link C++ class Unfolder_ns::ForwardFolder+;
-#pragma link C++ class Unfolder_ns::ResponseMatrix+;
-*/
 
 #pragma link C++ class Unfolder_ns::ResoPars+;
 #pragma link C++ class Unfolder_ns::ConstResoPars+;

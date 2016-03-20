@@ -48,6 +48,7 @@ TF1* ForwardFolder::fTrueSpectrumModelFcn;
 TH1D* ForwardFolder::fCurrentRecSpectrum;		
 TH1D* ForwardFolder::fTrueSpectrum;
 TH1D* ForwardFolder::fForwardFoldedSpectrum;
+TH1D* ForwardFolder::fCurrentForwardFoldedSpectrum;
 TH2D* ForwardFolder::fResponseMatrix;
 
 ForwardFolder::ForwardFolder(){
@@ -56,6 +57,7 @@ ForwardFolder::ForwardFolder(){
 	fUnfoldedSpectrum= 0;
 	fTrueSpectrum= 0;
 	fForwardFoldedSpectrum= 0;
+	fCurrentForwardFoldedSpectrum= 0;
 	fCurrentRecSpectrum= 0;
 	fCovarianceMatrix= 0;
 
@@ -74,6 +76,7 @@ int ForwardFolder::Clear(){
 	if(fUnfoldedSpectrum) fUnfoldedSpectrum->Delete();
 	if(fTrueSpectrum) fTrueSpectrum->Delete();
 	if(fForwardFoldedSpectrum) fForwardFoldedSpectrum->Delete();
+	if(fCurrentForwardFoldedSpectrum) fCurrentForwardFoldedSpectrum->Delete();
 	if(fCurrentRecSpectrum) fCurrentRecSpectrum->Delete();
 	if(fCovarianceMatrix) fCovarianceMatrix->Delete();
 
@@ -179,6 +182,14 @@ int ForwardFolder::Init(){
 	fForwardFoldedSpectrum->SetMarkerColor(kBlack);
 	fForwardFoldedSpectrum->SetLineColor(kBlack);
 	
+	if(fCurrentForwardFoldedSpectrum) fCurrentForwardFoldedSpectrum->Delete();
+	fCurrentForwardFoldedSpectrum= new TH1D("CurrentForwardFoldedSpectrum","CurrentForwardFoldedSpectrum",fNRecBins,BinEdge_RecSpectrum);
+	fCurrentForwardFoldedSpectrum->Sumw2();
+	fCurrentForwardFoldedSpectrum->SetMarkerStyle(8);
+	fCurrentForwardFoldedSpectrum->SetMarkerSize(1.1);
+	fCurrentForwardFoldedSpectrum->SetMarkerColor(kBlack);
+	fCurrentForwardFoldedSpectrum->SetLineColor(kBlack);
+	
 	if(fCurrentRecSpectrum) fCurrentRecSpectrum->Delete();
 	fCurrentRecSpectrum= new TH1D("CurrentRecSpectrum","CurrentRecSpectrum",fNRecBins,BinEdge_RecSpectrum);
 	fCurrentRecSpectrum->Sumw2();
@@ -232,6 +243,9 @@ int ForwardFolder::RunUnfold(TH1D* recSpectrum,TH2D* responseMatrix,SpectrumPars
 
 	//## Unfold spectrum
 	fUnfoldedSpectrum= UnfoldSpectrum(initFitPars,"FIT");
+
+	//## Copy 
+	SpectrumUtils::CopySpectrumContent(fCurrentForwardFoldedSpectrum,fForwardFoldedSpectrum);
 
 	//## Calculate syst uncertainties
 	if(computeUncertainties) {
@@ -358,7 +372,9 @@ TH1D* ForwardFolder::UnfoldSpectrum(SpectrumPars& initFitPars,std::string runMod
 		fTrueSpectrum->SetBinContent(recBinId,nTrue);
 		fTrueSpectrum->SetBinError(recBinId,nTrueErr);
 
-		double nFF= fForwardFoldedSpectrum->GetBinContent(j+1);
+		//double nFF= fForwardFoldedSpectrum->GetBinContent(j+1);
+		double nFF= fCurrentForwardFoldedSpectrum->GetBinContent(j+1);
+		
 		double correctionFactor= 0;
 		if(nFF!=0) correctionFactor= (double)(nTrue)/(double)(nFF);
 		double nUnfold= nRec*correctionFactor;
@@ -388,21 +404,14 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 	fTrueSpectrumModelFcn->SetParameters(par);
 	fTrueSpectrumModelFcn->SetParameter(0,pow(10,par[0]));
 	
-	fTrueSpectrum->Reset(); 
-
-	for(int i=0;i<fTrueSpectrum->GetNbinsX();i++){
-		double lgETrueMin= fTrueSpectrum->GetBinLowEdge(i+1);
-		double lgETrueMax= lgETrueMin + fTrueSpectrum->GetBinWidth(i+1);
-		double nTrue= fTrueSpectrumModelFcn->Integral(lgETrueMin,lgETrueMax);
-		fTrueSpectrum->SetBinContent(i+1,nTrue);
-		fTrueSpectrum->SetBinError(i+1,sqrt(nTrue));
-	}//end loop true bins
+	SpectrumUtils::GetModelSpectrum(*fTrueSpectrum,fTrueSpectrumModelFcn,false);
 
 	//## Forward fold the "true" spectrum with resolution model
 	TH1D* FoldedSpectrum= SpectrumUtils::GetFoldedSpectrum(fTrueSpectrum,fResponseMatrix);
 
 
-	fForwardFoldedSpectrum->Reset();
+	//fForwardFoldedSpectrum->Reset();
+	fCurrentForwardFoldedSpectrum->Reset();
 
 	for(int i=0;i<fCurrentRecSpectrum->GetNbinsX();i++){
 		double lgERec= fCurrentRecSpectrum->GetBinCenter(i+1);
@@ -415,8 +424,10 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 		int binId= FoldedSpectrum->FindBin(lgERec);
 		double nExp= FoldedSpectrum->GetBinContent(binId);
 		
-		fForwardFoldedSpectrum->SetBinContent(i+1,nExp);
-		fForwardFoldedSpectrum->SetBinError(i+1,sqrt(nExp));
+		//fForwardFoldedSpectrum->SetBinContent(i+1,nExp);
+		//fForwardFoldedSpectrum->SetBinError(i+1,sqrt(nExp));
+		fCurrentForwardFoldedSpectrum->SetBinContent(i+1,nExp);
+		fCurrentForwardFoldedSpectrum->SetBinError(i+1,sqrt(nExp));
 
 		//Skip bins if requested
 		if(fUseFitRange && (lgERecMin<fLgEMin_fit || lgERecMax>fLgEMax_fit) ) continue;
@@ -432,7 +443,7 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 				Chi2+= nExp;
 				thisChi2= nExp;
 			}
-			cout<<"INFO: lgERec="<<lgERec<<"  nData="<<nData<<"  nExp="<<nExp<<"  LL="<<LogLikelihood<<"  Chi2="<<Chi2<<"  DeltaChi2="<<thisChi2<<endl;
+			//cout<<"INFO: lgERec="<<lgERec<<"  nData="<<nData<<"  nExp="<<nExp<<"  LL="<<LogLikelihood<<"  Chi2="<<Chi2<<"  DeltaChi2="<<thisChi2<<endl;
 		}
 	
 		NDF++;
@@ -445,6 +456,7 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 	Chi2*= 2;
 	NDF-= nPar-2;
 
+	/*
 	cout<<"*** CURRENT FIT ***"<<endl;
 	cout<<"nPar="<<nPar<<" nTotPar="<<nTotPar<<endl;
 	cout<<"LL="<<LogLikelihood<<endl;
@@ -456,7 +468,7 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 	}
 	cout<<"*******************"<<endl;
 	cout<<endl;
-
+	*/
 	FoldedSpectrum->Delete();
 
 }//close ForwardFolder::LogLikelihoodFcn()
@@ -464,17 +476,59 @@ void ForwardFolder::LogLikelihoodFcn(int& nPar, double* gin, double &f, double* 
 
 int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSamples){
 
-	//## Save covariance matrix and fitted pars for error propagation
+	//## Check covariance matrix
 	if(!fCovarianceMatrix){
 		cerr<<"ForwardFolder::ComputeUncertainties(): ERROR: Null pointer to covariance matrix, cannot compute uncertainties!"<<endl;
 		return -1;
 	}
+	if(nRandomSamples<=0){
+		cerr<<"ForwardFolder::ComputeUncertainties(): ERROR: Invalid number of random sampled given!"<<endl;
+		return -1;
+	}
 
-	cout<<"--> Covariance matrix..."<<endl;
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Covariance matrix:"<<endl;
 	fCovarianceMatrix->Print();
 
 	int nPar= fCovarianceMatrix->GetNrows();
-	
+	int nFreePar= 0;
+	std::vector<bool> isFreeFlags;
+	std::vector<int> freeParIndex;
+	for(int i=0;i<initFitPars.GetNPars();i++){
+		FitPar* thisFitPar= initFitPars.GetPar(i);
+		bool isFixed= thisFitPar->IsFixed();
+		if(!isFixed) {
+			nFreePar++;
+			isFreeFlags.push_back(true);
+		}	
+		else{
+			isFreeFlags.push_back(false);
+			freeParIndex.push_back(i);
+		}
+	}
+
+	TMatrixD C(nFreePar,nFreePar);
+	double FittedPar[nPar];
+	int ix= 0;
+	int iy= 0;
+
+	for(int i=0;i<nPar;i++){
+		FittedPar[i]= fFitPar[i];
+
+		for(int j=0;j<nPar;j++){
+			if(isFreeFlags[i] && isFreeFlags[j]) {
+				C(ix,iy)= (*fCovarianceMatrix)(i,j);
+				if(j==nPar-1) iy=0;
+				else iy++;
+			}
+		}//end loop y
+		if(isFreeFlags[i]) ix++;
+	}//end loop x
+
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Covariance matrix for free pars (N="<<nFreePar<<"):"<<endl;
+	C.Print();
+
+
+	/*
 	TMatrixD C(nPar,nPar);
 	double FittedPar[nPar];
 	for(int i=0;i<nPar;i++){
@@ -483,21 +537,24 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 			C(i,j)= (*fCovarianceMatrix)(i,j);
 		}
 	}
+	*/
 
 	//## Find a Cholesky decomposition of the covariance matrix for error propagation
-	cout<<"|C|"<<C.Determinant()<<endl;
+	cout<<"|C|="<<C.Determinant()<<endl;
 	
 	TDecompChol CCholDecomp(C);
   CCholDecomp.Decompose();
 	cout<<"--> Choleski Decomposition..."<<endl;	
 	CCholDecomp.Print();
 	
-	TMatrixD* CCholDecompTriang= new TMatrixD(nPar,nPar);
+	//TMatrixD* CCholDecompTriang= new TMatrixD(nPar,nPar);
+	TMatrixD* CCholDecompTriang= new TMatrixD(nFreePar,nFreePar);
 	CCholDecompTriang= (TMatrixD*)(&CCholDecomp.GetU());
 	cout<<"--> Choleski Decomposition Triangular..."<<endl;	
 	CCholDecompTriang->Print();
 
-	TMatrixD* CCholDecompTriangTransp= new TMatrixD(nPar,nPar);
+	//TMatrixD* CCholDecompTriangTransp= new TMatrixD(nPar,nPar);
+	TMatrixD* CCholDecompTriangTransp= new TMatrixD(nFreePar,nFreePar);
 	CCholDecompTriangTransp->Transpose(*CCholDecompTriang);
 
 
@@ -505,60 +562,74 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 	//##  STATISTICAL UNCERTAINTIES 
 	//################################
 	double StatSigma[fNTrueBins];
-	double nUnfold_Stat[fNToysForSystUncertainty][fNTrueBins];
+	std::vector< std::vector<double> > nUnfold_Stat;
+	//double nUnfold_Stat[nRandomSamples][fNTrueBins];
 	double nUnfoldMean_Stat[fNTrueBins];
 	int nToys_Stat= 0;
 	for(int i=0;i<fNTrueBins;i++) {
 		StatSigma[i]= 0.;
 		nUnfoldMean_Stat[i]= 0.;
+		nUnfold_Stat.push_back( std::vector<double>() );
 	}
 
 	
-	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Propagate statistical uncertainties into the unfolded flux ..."<<endl;
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Propagate rec spectrum statistical uncertainties into the unfolded flux ..."<<endl;
 
 	for(int k=0;k<nRandomSamples;k++){
-		cout<<"== TOY NO. "<<k+1<<" =="<<endl;	
+		cout<<"== RAND SPECTRUM NO. "<<k+1<<" =="<<endl;	
 
+		//Get a fluctuated version of the rec spectrum
 		TH1D* thisFluctuatedHisto= SpectrumUtils::GetFluctuatedSpectrum(fRecSpectrum);
 		if(!thisFluctuatedHisto) continue;
 
-		/*
-		fFixParBelowAnkle= true;	
-		fFixParAboveAnkle= false;
-		fStartNormEG= 40;
-		fStartGammaEG= fGamma2;
-		fStartLgEbEG= fLgECutoff;
-		fStartWcEG= fLogWc;
-		fStartGammaGAL= fGamma1;
-		fStartLgEbGAL= fLgEAnkle;
-		*/
+		//Copy content to tmp rec spectrum (used in the unfolding fit)
 		fCurrentRecSpectrum->Reset();
 		if(SpectrumUtils::CopySpectrumContent(thisFluctuatedHisto,fCurrentRecSpectrum)<0) continue;
 			
+		//Run the unfolding over the fluctuated spectrum
 		TH1D* FluctUnfoldedSpectrum_Stat= UnfoldSpectrum(initFitPars,"FIT");
-		if(fFitStatus==0) nToys_Stat++;
+		if(fFitStatus!=0) {
+			cout<<"ForwardFolder::ComputeUncertainties(): WARN: Unfolding run not converged for rndom sample no. "<<k+1<<", skip it!"<<endl;
+			continue;
+		}
 
-		cout<<"--> Calculate mean counts for forward-folded toy spectra (Ecal, EnergyFD, EnergySD syst)..."<<endl;	
+		//Update unfolded stats counts fr uncertainty calculation
+		cout<<"ForwardFolder::ComputeUncertainties(): INFO: Updating mean counts for forward-folded random spectra ..."<<endl;	
+		nToys_Stat++;
+
 		for(int i=0;i<fNTrueBins;i++) {
 			double nUnfold= fUnfoldedSpectrum->GetBinContent(i+1);
 			double nUnfoldToyMC_Stat= FluctUnfoldedSpectrum_Stat->GetBinContent(i+1);
+			if(TMath::IsNaN(nUnfoldToyMC_Stat)){
+				cerr<<"ForwardFolder::ComputeUncertainties(): WARN: Unfolded bin "<<i+1<<" for random spectrum sample no. "<<k<<" is invalid (NAN)!"<<endl;
+			}
 			nUnfoldMean_Stat[i]+= nUnfoldToyMC_Stat;
-			nUnfold_Stat[k][i]= nUnfoldToyMC_Stat;	
+			//nUnfold_Stat[k][i]= nUnfoldToyMC_Stat;
+			nUnfold_Stat[i].push_back(nUnfoldToyMC_Stat);
 		}//end loop true bins
 				
 		if(FluctUnfoldedSpectrum_Stat) FluctUnfoldedSpectrum_Stat->Delete();
 	}//end loop toys
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: #"<<nToys_Stat<<" unfolding over the rec spectrum performed..."<<endl;
+	
+	if(nToys_Stat<=1){
+		cerr<<"ForwardFolder::ComputeUncertainties(): INFO: No random unfolding succeeded, cannot compute uncertainty!"<<endl;
+		if(CCholDecompTriang) CCholDecompTriang->Delete();
+		if(CCholDecompTriangTransp) CCholDecompTriangTransp->Delete();
+		return -1;
+	}
+	
 
 	//## Calculate sigma syst true model
-	cout<<"--> nToys_SystECal="<<nToys_Stat<<endl;
-	cout<<"--> Calculate sigma stat ..."<<endl;
-
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Computing sigma stat ..."<<endl;
 	for(int i=0;i<fNTrueBins;i++) {
 		double nUnfold= fUnfoldedSpectrum->GetBinContent(i+1);
 		nUnfoldMean_Stat[i]/= (double)(nToys_Stat);
 			
-		for(int k=0;k<fNToysForSystUncertainty;k++){
-			StatSigma[i]+= pow(nUnfold_Stat[k][i]-nUnfoldMean_Stat[i],2);	
+		//for(int k=0;k<nRandomSamples;k++){
+		for(int k=0;k<nUnfold_Stat[i].size();k++){
+			//StatSigma[i]+= pow(nUnfold_Stat[k][i]-nUnfoldMean_Stat[i],2);	
+			StatSigma[i]+= pow(nUnfold_Stat[i][k]-nUnfoldMean_Stat[i],2);
 		}
 		StatSigma[i]/= (double)(nToys_Stat-1);
 		StatSigma[i]= sqrt(StatSigma[i]);
@@ -571,7 +642,7 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 		if(nUnfoldMean_Stat[i]>0){
 			relSyst_Stat= StatSigma[i]/nUnfoldMean_Stat[i];
 		}
-		cout<<"bin "<<i<<" StatErr="<<StatSigma[i]<<"  Bias="<<relBias_Stat<<"  RelStatErr="<<relSyst_Stat<<endl;
+		cout<<"ForwardFolder::ComputeUncertainties(): INFO: bin "<<i<<" StatErr="<<StatSigma[i]<<"  Bias="<<relBias_Stat<<"  RelStatErr="<<relSyst_Stat<<endl;
 	}//end loop true bins
 		
 
@@ -583,47 +654,46 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Propagate true model systematics into the unfolded flux ..."<<endl;
 	
 	double SystSigmaTrueModel[fNTrueBins];
-	double nUnfold_SystTrueModel[fNToysForSystUncertainty][fNTrueBins];
+	double nUnfold_SystTrueModel[nRandomSamples][fNTrueBins];
 	double nUnfoldMean_SystTrueModel[fNTrueBins];
 	for(int i=0;i<fNTrueBins;i++) {
 		SystSigmaTrueModel[i]= 0.;
 		nUnfoldMean_SystTrueModel[i]= 0.;
 	}
 
-
 	for(int k=0;k<nRandomSamples;k++){
-		cout<<"== TOY NO. "<<k+1<<" =="<<endl;		
+		cout<<"== RANDOM SPECTRUM NO. "<<k+1<<" =="<<endl;		
 
 		//## Generate new true model around uncertainties		
+		/*
 		TMatrixD RandModelPar(nPar,1);
 		for(int i=0;i<nPar;i++){
 			RandModelPar(i,0)= gRandom->Gaus(0,1);
 		}
-		
 		TMatrixD FluctModelPar(nPar,1);
 		FluctModelPar= (*CCholDecompTriangTransp)*RandModelPar;
-		
+
 		double newModelPar[nPar];
 		for(int i=0;i<nPar;i++){
 			newModelPar[i]= FittedPar[i] + FluctModelPar(i,0);
 		}
-
-		/*
-		fFixParBelowAnkle= true;	
-		fFixParAboveAnkle= true;
-		fStartNormEG= newModelPar[0];
-		fStartGammaEG= newModelPar[1];
-		fStartLgEbEG= newModelPar[2];
-		fStartWcEG= newModelPar[3];
-		if(fFitBelowAnkle){
-			fStartGammaGAL= newModelPar[4];
-			fStartLgEbGAL= newModelPar[5];
-		}
-		else{
-			fStartGammaGAL= fGamma1;
-			fStartLgEbGAL= fLgEAnkle;
-		}
 		*/
+
+		TMatrixD RandModelPar(nFreePar,1);
+		for(int i=0;i<nFreePar;i++){
+			RandModelPar(i,0)= gRandom->Gaus(0,1);
+		}
+		TMatrixD FluctModelPar(nFreePar,1);
+		FluctModelPar= (*CCholDecompTriangTransp)*RandModelPar;
+		
+
+		double newModelPar[nPar];
+		for(int i=0;i<nPar;i++) newModelPar[i]= FittedPar[i];
+		for(unsigned int i=0;i<freeParIndex.size();i++){
+			int parIndex= freeParIndex[i];	
+			newModelPar[parIndex]+= FluctModelPar(i,0);
+		}
+		
 
 		//Update pars
 		SpectrumPars* modelFitPars= initFitPars.Clone();
@@ -633,7 +703,7 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 
 		TH1D* FluctUnfoldedSpectrum= UnfoldSpectrum(*modelFitPars,"CALL");
 
-		cout<<"--> Calculate mean counts for forward-folded toy spectra..."<<endl;	
+		cout<<"ForwardFolder::ComputeUncertainties(): INFO: Calculate mean counts for forward-folded toy spectra..."<<endl;	
 		for(int i=0;i<fNTrueBins;i++) {
 			double nUnfold= fUnfoldedSpectrum->GetBinContent(i+1);
 			double nUnfoldToyMC= FluctUnfoldedSpectrum->GetBinContent(i+1);
@@ -652,14 +722,14 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 
 
 	//## Calculate sigma syst true model
-	cout<<"--> Calculate sigma syst for true model..."<<endl;
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Calculate sigma syst for true model..."<<endl;
 	for(int i=0;i<fNTrueBins;i++) {
 		double nUnfold= fUnfoldedSpectrum->GetBinContent(i+1);
-		nUnfoldMean_SystTrueModel[i]/= (double)(fNToysForSystUncertainty);
-		for(int k=0;k<fNToysForSystUncertainty;k++){
+		nUnfoldMean_SystTrueModel[i]/= (double)(nRandomSamples);
+		for(int k=0;k<nRandomSamples;k++){
 			SystSigmaTrueModel[i]+= pow(nUnfold_SystTrueModel[k][i]-nUnfoldMean_SystTrueModel[i],2); 	
 		}
-		SystSigmaTrueModel[i]/= (double)(fNToysForSystUncertainty-1);
+		SystSigmaTrueModel[i]/= (double)(nRandomSamples-1);
 		SystSigmaTrueModel[i]= sqrt(SystSigmaTrueModel[i]);
 		double relBias= 0.;
 		double relSyst= 0.;
@@ -669,21 +739,20 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 		if(nUnfoldMean_SystTrueModel[i]>0){
 			relSyst= SystSigmaTrueModel[i]/nUnfoldMean_SystTrueModel[i];
 		}
-		cout<<"bin "<<i<<" Syst(TrueModel)="<<SystSigmaTrueModel[i]<<"  Bias(TrueModel)="<<relBias<<"  RelSyst(TrueModel)="<<relSyst<<endl;
+		cout<<"ForwardFolder::ComputeUncertainties(): INFO: bin "<<i<<" Syst(TrueModel)="<<SystSigmaTrueModel[i]<<"  Bias(TrueModel)="<<relBias<<"  RelSyst(TrueModel)="<<relSyst<<endl;
 	}
-	
-
-
 	
 	
 	//## Forward-folding results
-	cout<<"--> Final unfolding results..."<<endl;
+	cout<<"ForwardFolder::ComputeUncertainties(): INFO: Final unfolding results..."<<endl;
 	
 	for(int i=0;i<fUnfoldedSpectrum->GetNbinsX();i++){
 		double binCenter= fUnfoldedSpectrum->GetBinCenter(i+1);
 		double binContent= fUnfoldedSpectrum->GetBinContent(i+1);
 		int recBinId= fRecSpectrum->FindBin(binCenter);
-
+		double nRec= fRecSpectrum->GetBinContent(recBinId);			
+		double nRecErr= fRecSpectrum->GetBinError(recBinId);			
+		
 		double totErrorSqr= 0;
 
 		//Add stat uncertainties
@@ -712,7 +781,8 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 			
 		fUnfoldedSpectrum->SetBinContent(i+1,binContent);
 		fUnfoldedSpectrum->SetBinError(i+1,binError);	
-
+		cout<<"bin "<<i+1<<"  nRec="<<nRec<<"  +- "<<nRecErr<<"("<<nRecErr/nRec<<")  nUnfold="<<binContent<<"  +- "<<binError<<"("<<binError/binContent<<")  (recStatErr="<<statError_rec<<"), syst(unfoldAlgo)="<<systError_UnfoldingAlgo<<", totError="<<totError<<endl;
+	
 		/*
 		fLogE= fUnfoldedSpectrum->GetBinCenter(i+1);
 		double E= pow(10,fLogE);
@@ -749,6 +819,9 @@ int ForwardFolder::ComputeUncertainties(SpectrumPars& initFitPars,int nRandomSam
 		fUnfoldedSpectrumTable->Fill();	
 		*/
 	}//end loop true bins
+	
+	if(CCholDecompTriang) CCholDecompTriang->Delete();
+	if(CCholDecompTriangTransp) CCholDecompTriangTransp->Delete();
 	
 	return 0;
 

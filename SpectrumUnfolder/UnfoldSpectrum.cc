@@ -109,12 +109,17 @@ int main(int argc, char *argv[]){
 	//====================================================
 	//==         SET RESPONSE MODEL PARS
 	//=====================================================	
+	double gamma1= 3.27;
+	double gamma2= 2.68;
+	double gamma3= 4.2;
+	double LgEBreak= 18.61;
+	double LgECutoff= 19.41; 
 	Unfolder_ns::FitPar normPar= Unfolder_ns::FitPar("Norm",1);
-	Unfolder_ns::FitPar gammaPar1= Unfolder_ns::FitPar("Gamma1",3.27,2,5);
-	Unfolder_ns::FitPar gammaPar2= Unfolder_ns::FitPar("Gamma2",2.68,2,5);
-	Unfolder_ns::FitPar gammaPar3= Unfolder_ns::FitPar("Gamma3",4.2,2,20);
-	Unfolder_ns::FitPar breakPar= Unfolder_ns::FitPar("Break",18.61,18,19);
-	Unfolder_ns::FitPar cutoffPar= Unfolder_ns::FitPar("Cutoff",19.41,19,20);
+	Unfolder_ns::FitPar gammaPar1= Unfolder_ns::FitPar("Gamma1",gamma1,2,5);
+	Unfolder_ns::FitPar gammaPar2= Unfolder_ns::FitPar("Gamma2",gamma2,2,5);
+	Unfolder_ns::FitPar gammaPar3= Unfolder_ns::FitPar("Gamma3",gamma3,2,20);
+	Unfolder_ns::FitPar breakPar= Unfolder_ns::FitPar("Break",LgEBreak,18,19);
+	Unfolder_ns::FitPar cutoffPar= Unfolder_ns::FitPar("Cutoff",LgECutoff,19,20);
 	Unfolder_ns::BrokenPowerLawsPars brokenPowerLawPars= Unfolder_ns::BrokenPowerLawsPars(normPar,gammaPar1,gammaPar2,gammaPar3,breakPar,cutoffPar);
 	Unfolder_ns::PowerLawPars powerLawPars= Unfolder_ns::PowerLawPars(normPar,gammaPar2);
 	Unfolder_ns::ConstResoPars biasPars= Unfolder_ns::ConstResoPars(0);
@@ -122,6 +127,11 @@ int main(int argc, char *argv[]){
 	Unfolder_ns::ConstTriggerPars triggerPars= Unfolder_ns::ConstTriggerPars(1);
 	
 	
+	//Fix spectrum pars?
+	brokenPowerLawPars.FixPar("Gamma1",gamma1);
+	brokenPowerLawPars.FixPar("Break",LgEBreak);
+	
+
 	//====================================================
 	//==         BUILD RESPONSE MATRIX
 	//=====================================================

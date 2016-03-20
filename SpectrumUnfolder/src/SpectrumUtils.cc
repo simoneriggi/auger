@@ -237,26 +237,299 @@ bool SpectrumUtils::CheckSpectrumBinnings(const TAxis* a1, const TAxis* a2){
 }//close CheckSpectrumBinnings()
 
 
-int SpectrumUtils::GetModelSpectrum(TH1D& spectrum,TF1* spectrumModel){
+int SpectrumUtils::GetModelSpectrum(TH1D& spectrum,TF1* spectrumModel,bool integrateBins){
 
 	if(!spectrumModel) return -1;
 	spectrum.Reset();
-	for(int i=0;i<spectrum.GetNbinsX();i++){
-		double x= spectrum.GetBinCenter(i+1);
-		double xmin= spectrum.GetBinLowEdge(i+1);
-		double xmax= xmin+spectrum.GetBinWidth(i+1);
-		double w= spectrumModel->Integral(xmin,xmax)/(xmax-xmin);
-		//double w= spectrumModel->Eval(x);
-		spectrum.SetBinContent(i+1,w);
-		spectrum.SetBinError(i+1,0);
-	}
-	
+	if(integrateBins){
+		for(int i=0;i<spectrum.GetNbinsX();i++){
+			double xmin= spectrum.GetBinLowEdge(i+1);
+			double xmax= xmin+spectrum.GetBinWidth(i+1);
+			double w= spectrumModel->Integral(xmin,xmax)/(xmax-xmin);
+			if(!TMath::IsNaN(w) && fabs(w)!=TMath::Infinity() ){
+				spectrum.SetBinContent(i+1,w);
+				spectrum.SetBinError(i+1,0);
+			}
+		}
+	}//close if	
+	else{
+		for(int i=0;i<spectrum.GetNbinsX();i++){
+			double x= spectrum.GetBinCenter(i+1);
+			double w= spectrumModel->Eval(x);
+			if(!TMath::IsNaN(w) && fabs(w)!=TMath::Infinity() ){
+				spectrum.SetBinContent(i+1,w);
+				spectrum.SetBinError(i+1,0);
+			}
+		}
+	}//close else
+
 	return 0;
 
 }//close GetModelSpectrum()
 
 
+TF1* SpectrumUtils::ComputeSpectrumModel(SpectrumPars& pars,double xmin,double xmax,int npts){
 
+	//Create model function
+	TF1* SpectrumModel= 0;
+	int nSpectrumPars= pars.GetNPars();
+	int spectrumModel= pars.GetModel();
+
+	if(spectrumModel==ePowerLaw){
+		SpectrumModel= new TF1("SpectrumModel",MathUtils::PowerLawSpectrum,xmin,xmax,nSpectrumPars);
+	}
+	else if(spectrumModel==eFlat){
+		SpectrumModel= new TF1("SpectrumModel","[0]",xmin,xmax);
+	}
+	else if(spectrumModel==eBrokenPowerLaws){
+		SpectrumModel= new TF1("SpectrumModel",MathUtils::BrokenPowerLawSpectrum,xmin,xmax,nSpectrumPars);
+	}
+	else if(spectrumModel==eSmoothBrokenPowerLaws){
+		SpectrumModel= new TF1("SpectrumModel",MathUtils::SmoothCutoffPowerLawSpectrum,xmin,xmax,nSpectrumPars);
+	}	
+	else{
+		cerr<<"SpectrumUtils::ComputeSpectrumModel(): INvalid model selected!"<<endl;
+		return 0;
+	}
+
+	//Set model parameters
+	SpectrumModel->SetNpx(npts);
+	for(int i=0;i<nSpectrumPars;i++){
+		double parValue= pars.GetPar(i)->GetValue();
+		SpectrumModel->SetParameter(i,parValue);
+	}	
+	
+	//Compute integral and normalize to 1
+	double integral= pars.GetIntegral(xmin,xmax);
+	if(spectrumModel==eFlat){
+		integral= (xmax-xmin);
+	}
+	else if(spectrumModel==eSmoothBrokenPowerLaws){
+		integral= SpectrumModel->Integral(xmin,xmax);
+	}
+	SpectrumModel->SetParameter(0,1./integral);
+
+	return SpectrumModel;
+
+}//close ComputeSpectrumModel()
+
+
+
+TF2* SpectrumUtils::ComputeResponseModel(SpectrumPars& spectrumPars,ResoPars& biasPars,ResoPars& sigmaPars,TriggerPars& triggerPars,double xmin,double xmax,double ymin,double ymax,int npts){
+
+	//Get spectrum pars
+	int nSpectrumPars= spectrumPars.GetNPars();
+	int spectrumModel= spectrumPars.GetModel();
+	FitPars spectrumParList= spectrumPars.GetPars();
+
+	//Get bias pars
+	int nBiasPars= biasPars.GetNPars();
+	int biasModel= biasPars.GetModel();
+	std::vector<double> biasParList= biasPars.GetPars();
+
+	//Get sigma pars
+	int nSigmaPars= sigmaPars.GetNPars();
+	int sigmaModel= sigmaPars.GetModel();
+	std::vector<double> sigmaParList= sigmaPars.GetPars();
+
+	//Get trigger pars
+	int nTriggerPars= triggerPars.GetNPars();
+	int triggerModel= triggerPars.GetModel();
+	std::vector<double> triggerParList= triggerPars.GetPars();
+
+	int nTotPars= (nBiasPars+1) + (nSigmaPars+1) + (nTriggerPars+1) + (nSpectrumPars+1);
+	cout<<"SpectrumUtils::ComputeResponseModel(): INFO: nBiasPars="<<nBiasPars<<", nSigmaPars="<<nSigmaPars<<", nTriggerPars="<<nTriggerPars<<", nSpectrumPars="<<nSpectrumPars<<", nTotPars="<<nTotPars<<endl;
+
+	//Init response fcn
+	TF2* ResponseModelFcn= new TF2("ResponseModel",MathUtils::ResponseModel,xmin,xmax,ymin,ymax,nTotPars);
+	ResponseModelFcn->SetNpx(npts);
+	ResponseModelFcn->SetNpy(npts);
+
+	//Set spectrum pars
+	cout<<"SpectrumUtils::ComputeResponseModel(): INFO: spectrumModel: "<<spectrumModel<<endl;
+
+	TF1* spectrumModelFcn= ComputeSpectrumModel(spectrumPars,xmin,xmax);
+	double integral= spectrumPars.GetIntegral(xmin,xmax);
+	if(spectrumModel==eFlat){
+		integral= (xmax-xmin);
+	}
+	else if(spectrumModel==eSmoothBrokenPowerLaws){
+		integral= spectrumModelFcn->Integral(xmin,xmax);
+	}	
+
+	int par_counter= 0;
+	ResponseModelFcn->SetParameter(par_counter,spectrumModel);
+	par_counter++;
+	for(int i=0;i<spectrumParList.GetNPars();i++){
+		double parValue= spectrumParList.GetPar(i)->GetValue();
+		if(i==0) parValue= 1./integral;
+		cout<<"SpectrumUtils::ComputeResponseModel(): INFO: Spectrum Par no. "<<i<<"="<<parValue<<endl;
+		ResponseModelFcn->SetParameter(par_counter,parValue);
+		par_counter++;
+	}
+
+	
+
+	//Set bias pars
+	cout<<"SpectrumUtils::ComputeResponseModel(): INFO: BiasModel: "<<biasModel<<endl;
+
+	ResponseModelFcn->SetParameter(par_counter,biasModel);
+	par_counter++;
+	for(unsigned int i=0;i<biasParList.size();i++){
+		cout<<"SpectrumUtils::ComputeResponseModel(): INFO: Bias Par no. "<<i<<"="<<biasParList[i]<<endl;
+		ResponseModelFcn->SetParameter(par_counter,biasParList[i]);
+		par_counter++;
+	}
+
+	//Set sigma pars
+	cout<<"SpectrumUtils::ComputeResponseModel(): INFO: SigmaModel="<<sigmaModel<<endl;
+	ResponseModelFcn->SetParameter(par_counter,sigmaModel);
+	par_counter++;
+	for(unsigned int i=0;i<sigmaParList.size();i++){
+		cout<<"SpectrumUtils::ComputeResponseModel(): INFO: Sigma Par no. "<<i<<"="<<sigmaParList[i]<<endl;
+		
+		ResponseModelFcn->SetParameter(par_counter,sigmaParList[i]);
+		par_counter++;
+	}
+
+	
+	//Set trigger pars
+	cout<<"SpectrumUtils::ComputeResponseModel(): INFO: TriggerModel="<<triggerModel<<endl;
+	ResponseModelFcn->SetParameter(par_counter,triggerModel);
+	par_counter++;
+	for(unsigned int i=0;i<triggerParList.size();i++){
+		cout<<"SpectrumUtils::ComputeResponseModel(): INFO: Trigger Par no. "<<i<<"="<<triggerParList[i]<<endl;
+		ResponseModelFcn->SetParameter(par_counter,triggerParList[i]);
+		par_counter++;
+	}
+
+
+	//Check given pars
+	for(int i=0;i<ResponseModelFcn->GetNpar();i++){
+		double parValue= ResponseModelFcn->GetParameter(i);
+		cout<<"SpectrumUtils::ComputeResponseModel(): INFO: Response par["<<i<<"]="<<parValue<<endl;
+	}
+
+	if(spectrumModelFcn) spectrumModelFcn->Delete();
+
+	return ResponseModelFcn;
+
+}//close ComputeResponseModel()
+
+
+TH2D* SpectrumUtils::ComputeParametricResponse(SpectrumPars& spectrumPars,ResoPars& biasPars,ResoPars& sigmaPars,TriggerPars& triggerPars,std::vector<double>& TrueBins, std::vector<double>& RecBins){
+
+	//## Check bins
+	int NTrueBins= (int)TrueBins.size()-1;
+	int NRecBins= (int)RecBins.size()-1;
+	if(NTrueBins<=0 || NRecBins<=0){
+		cerr<<"SpectrumUtils::ComputeParametricResponse(): ERROR: Invalid number of bins specified!"<<endl;
+		return 0;
+	}
+	double BinEdge_Rec[NRecBins+1];
+	double BinEdge_True[NTrueBins+1];
+
+	for(int s=0;s<NRecBins;s++) {
+		BinEdge_Rec[s]= RecBins[s];
+		cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: BinEdge_Rec["<<s<<"]="<<BinEdge_Rec[s]<<endl;
+	}
+	BinEdge_Rec[NRecBins]= RecBins[NRecBins];		
+	cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: BinEdge_Rec["<<NRecBins<<"]="<<BinEdge_Rec[NRecBins]<<endl;
+
+	for(int s=0;s<NTrueBins;s++) {	
+		BinEdge_True[s]= TrueBins[s];
+		cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: BinEdge_True["<<s<<"]="<<BinEdge_True[s]<<endl;
+	}
+	BinEdge_True[NTrueBins]= TrueBins[NTrueBins];
+	cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: BinEdge_True["<<NTrueBins<<"]="<<BinEdge_True[NTrueBins]<<endl;
+
+	double LgEmin_true= BinEdge_True[0];
+	double LgEmax_true= BinEdge_True[NTrueBins];
+	double LgEmin_rec= BinEdge_Rec[0];
+	double LgEmax_rec= BinEdge_Rec[NRecBins];
+
+
+	//## Init spectrum model fcn
+	TF1* SpectrumModelFcn= ComputeSpectrumModel(spectrumPars,LgEmin_true,LgEmax_true);
+	if(!SpectrumModelFcn){
+		cerr<<"SpectrumUtils::ComputeParametricResponse(): ERROR: Failed to compute the spectrum model!"<<endl;
+		return 0;
+	}
+
+	//## Init response model
+	TF2* ResponseModelFcn= ComputeResponseModel(spectrumPars,biasPars,sigmaPars,triggerPars,LgEmin_true,LgEmax_true,LgEmin_rec,LgEmax_rec);
+	if(!ResponseModelFcn){
+		cerr<<"SpectrumUtils::ComputeParametricResponse(): ERROR: Failed to compute the response model!"<<endl;
+		if(SpectrumModelFcn) SpectrumModelFcn->Delete();
+		return 0;
+	}
+
+	//## Init response matrix
+	TH2D* ResponseMat= new TH2D("ResponseMat","ResponseMat",NTrueBins,BinEdge_True,NRecBins,BinEdge_Rec);
+	ResponseMat->Sumw2();
+
+
+	//## Fill matrix
+	for(int i=0;i<ResponseMat->GetNbinsX();i++){
+		double binWidth_true= ResponseMat->GetXaxis()->GetBinWidth(i+1);	
+		double lgEMin_true= ResponseMat->GetXaxis()->GetBinLowEdge(i+1);
+		double lgEMax_true= lgEMin_true + binWidth_true;
+		double ProbNorm= SpectrumModelFcn->Integral(lgEMin_true,lgEMax_true);
+		
+		for(int j=0;j<ResponseMat->GetNbinsY();j++){
+			double binWidth_rec= ResponseMat->GetYaxis()->GetBinWidth(j+1);	
+			double lgEMin_rec= ResponseMat->GetYaxis()->GetBinLowEdge(j+1);
+			double lgEMax_rec= lgEMin_rec + binWidth_rec;
+
+			double Rji_noNorm= ResponseModelFcn->Integral(lgEMin_true,lgEMax_true,lgEMin_rec,lgEMax_rec);
+			double Rji= Rji_noNorm/ProbNorm;
+
+			cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: Etrue("<<lgEMin_true<<","<<lgEMax_true<<"), Erec("<<lgEMin_rec<<","<<lgEMax_rec<<") ProbNorm="<<ProbNorm<<", Rji_noNorm="<<Rji_noNorm<<" Rji="<<Rji<<endl;
+			
+			ResponseMat->SetBinContent(i+1,j+1,Rji);
+			ResponseMat->SetBinError(i+1,j+1,0.);
+			
+		}//end loop rec bins
+	}//end loop true bins
+
+	
+	
+	
+	/*
+	//## Check matrix normalization
+	double sumOfRecBins[NTrueBins];//this should be in [0,1] 
+  double sumOfTrueBins[NRecBins];//this should sum to 1
+  for(int i=0;i<NTrueBins;i++){
+		sumOfRecBins[i]= 0;
+		for(int j=0;j<NRecBins;j++){
+			sumOfRecBins[i]+= ResponseMat->GetBinContent(i+1,j+1);
+		}
+	}
+
+  for(int i=0;i<NRecBins;i++){
+		sumOfTrueBins[i]= 0;
+		for(int j=0;j<NTrueBins;j++){
+			sumOfTrueBins[i]+= ResponseMat->GetBinContent(j+1,i+1);
+		}
+	}
+	
+	for(int i=0;i<NTrueBins;i++){
+		cout<<"TRUE BIN "<<i+1<<"  sumRecBins="<<	sumOfRecBins[i]<<endl;
+	}
+	for(int i=0;i<NRecBins;i++){
+		cout<<"REC BIN "<<i+1<<"  sumTrueBins="<<	sumOfTrueBins[i]<<endl;
+	}
+	*/
+
+	cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: Deleting spectrum model..."<<endl;
+	if(SpectrumModelFcn) SpectrumModelFcn->Delete();
+	cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: Deleting response model..."<<endl;
+	if(ResponseModelFcn) ResponseModelFcn->Delete();	
+	cout<<"SpectrumUtils::ComputeParametricResponse(): INFO: done!"<<endl;
+	
+	return ResponseMat;
+
+}//close SpectrumUtils::ComputeParametricResponse()
 
 
 }//close namespace 

@@ -75,16 +75,24 @@ class ResoPars : public TObject {
 	public:
 		virtual ~ResoPars() {};
 	public:
-		virtual int GetModel() const = 0;
-		virtual int GetNPars() const = 0;
-		static int GetParNumber() {return 0;}
+		//Pure virtual
 		virtual double GetA() const = 0;	
 		virtual double GetB() const = 0;	
 		virtual double GetC() const = 0;	
 		virtual std::vector<double> GetPars() const = 0;
 		
+		//Standard
+		virtual int GetModel() const {return model;}
+		virtual int GetNPars() const {return nPars;}
+		static int GetParNumber() {return 0;}
+		
 	protected:
-		ClassDef(ResoPars,1)
+		static int nPars;
+		int model;
+		double A;
+		double B;
+		double C;
+	ClassDef(ResoPars,1)
 };
 #ifdef __MAKECINT__
 #pragma link C++ class ResoPars+; 
@@ -92,16 +100,13 @@ class ResoPars : public TObject {
 
 class ConstResoPars : public ResoPars {
 	public:		
-		ConstResoPars(double m_A)
-			: A(m_A)		
-		{ 
+		ConstResoPars(double m_A)	{ 
+			A= m_A;
 			model= eConst;
 			nPars= 1;	
 		};
 		virtual ~ConstResoPars() {};
-	public:
-		virtual int GetModel() const {return model;}
-		virtual int GetNPars() const {return nPars;}
+	public:	
 		static int GetParNumber() {return 1;}
 		virtual double GetA() const {return A;}
 		virtual double GetB() const {return 0;}
@@ -111,12 +116,9 @@ class ConstResoPars : public ResoPars {
 			pars.push_back(A);
 			return pars;
 		}
-	private:
-		int model;
-		int nPars;
-		double A;
-		double B;
-		double C;
+	protected:
+		//static int nPars;
+
 	ClassDef(ConstResoPars,1)
 };
 #ifdef __MAKECINT__
@@ -125,16 +127,14 @@ class ConstResoPars : public ResoPars {
 
 class LinearResoPars : public ResoPars {
 	public:		
-		LinearResoPars(double m_A,double m_B)
-			: A(m_A), B(m_B)	
-		{ 
+		LinearResoPars(double m_A,double m_B)	{
+			A= m_A;
+			B= m_B;
 			model= eLinear;
 			nPars= 2;	
 		};
 		virtual ~LinearResoPars() {};
 	public:
-		virtual int GetModel() const {return model;}
-		virtual int GetNPars() const {return nPars;}
 		static int GetParNumber() {return 2;}
 		virtual double GetA() const {return A;}
 		virtual double GetB() const {return B;}
@@ -145,12 +145,9 @@ class LinearResoPars : public ResoPars {
 			pars.push_back(B);
 			return pars;
 		}
-	private:
-		int model;
-		int nPars;
-		double A;
-		double B;
-		double C;
+	protected:
+		//static int nPars;
+		
 	ClassDef(LinearResoPars,1)
 };
 #ifdef __MAKECINT__
@@ -159,16 +156,15 @@ class LinearResoPars : public ResoPars {
 
 class Pol2ResoPars : public ResoPars {
 	public:		
-		Pol2ResoPars(double m_A,double m_B,double m_C)
-			: A(m_A), B(m_B), C(m_C)
-		{ 
+		Pol2ResoPars(double m_A,double m_B,double m_C){ 
+			A= m_A; 
+			B= m_B; 
+			C= m_C;
 			model= ePol2;		
 			nPars= 3;
 		};
 		virtual ~Pol2ResoPars() {};
 	public:
-		virtual int GetModel() const {return model;}
-	 	virtual int GetNPars() const {return nPars;}
 		static int GetParNumber() {return 3;}
 		virtual double GetA() const {return A;}
 		virtual double GetB() const {return B;}
@@ -180,12 +176,9 @@ class Pol2ResoPars : public ResoPars {
 			pars.push_back(C);
 			return pars;
 		}
-	private:
-		int model;
-		int nPars;
-		double A;
-		double B;
-		double C;
+	protected:
+		//static int nPars;
+		
 	ClassDef(Pol2ResoPars,1)
 };
 #ifdef __MAKECINT__
@@ -205,16 +198,25 @@ class TriggerPars : public TObject {
 	public:
 		virtual ~TriggerPars() {};
 	public:
-		virtual int GetModel() const = 0;
-		virtual int GetNPars() const = 0;
-		static int GetParNumber() {return 0;}
+		//Pure virtual
 		virtual double GetNorm() const = 0;
 		virtual double GetBreak() const = 0;
 		virtual double GetSmooth() const = 0;
 		virtual std::vector<double> GetPars() const = 0;
-		
-	private:
-		ClassDef(TriggerPars,1)
+
+		//Default
+		virtual int GetModel() const {return model;}
+		virtual int GetNPars() const {return nPars;}
+		static int GetParNumber() {return nPars;}
+
+	protected:
+		int model;
+		static int nPars;
+		double Norm;
+		double Break;
+		double Smooth;
+
+	ClassDef(TriggerPars,1)
 };
 #ifdef __MAKECINT__
 #pragma link C++ class TriggerPars+; 
@@ -222,16 +224,13 @@ class TriggerPars : public TObject {
 
 class ConstTriggerPars : public TriggerPars {
 	public:
-		ConstTriggerPars(double m_Norm)
-			: Norm(m_Norm)
-		{ 
+		ConstTriggerPars(double m_Norm){ 
+			Norm= m_Norm;
 			model= eConstTrigger;		
 			nPars= 1;
 		};
 		virtual ~ConstTriggerPars() {};
 	public:
-		virtual int GetModel() const {return model;}
-		virtual int GetNPars() const {return 1;}
 		static int GetParNumber() {return 1;}
 		virtual double GetNorm() const {return Norm;}
 		virtual double GetBreak() const {return 0;}	
@@ -241,15 +240,7 @@ class ConstTriggerPars : public TriggerPars {
 			pars.push_back(Norm);
 			return pars;
 		}
-		
-	private:
-		int model;
-		int nPars;
-		double Norm;
-		double Break;
-		double Smooth;
-		
-		ClassDef(ConstTriggerPars,1)
+	ClassDef(ConstTriggerPars,1)
 };
 #ifdef __MAKECINT__
 #pragma link C++ class ConstTriggerPars+; 
@@ -257,16 +248,15 @@ class ConstTriggerPars : public TriggerPars {
 
 class SigmoidTriggerPars : public TriggerPars {
 	public:
-		SigmoidTriggerPars(double m_Norm,double m_Break,double m_Smooth)
-			: Norm(m_Norm), Break(m_Break), Smooth(m_Smooth)
-		{ 
+		SigmoidTriggerPars(double m_Norm,double m_Break,double m_Smooth){ 
+			Norm= m_Norm; 
+			Break= m_Break; 	
+			Smooth= m_Smooth;
 			model= eSigmoidTrigger;		
 			nPars= 3;
 		};
 		virtual ~SigmoidTriggerPars() {};
 	public:
-		virtual int GetModel() const {return model;}
-		virtual int GetNPars() const {return 3;}
 		static int GetParNumber() {return 3;}
 		virtual double GetNorm() const {return Norm;}
 		virtual double GetBreak() const {return Break;}	
@@ -278,15 +268,7 @@ class SigmoidTriggerPars : public TriggerPars {
 			pars.push_back(Smooth);
 			return pars;
 		}
-		
-	private:
-		int model;
-		int nPars;
-		double Norm;
-		double Break;
-		double Smooth;
-		
-		ClassDef(SigmoidTriggerPars,1)
+	ClassDef(SigmoidTriggerPars,1)
 };
 #ifdef __MAKECINT__
 #pragma link C++ class SigmoidTriggerPars+; 
@@ -405,8 +387,23 @@ class FitPars : public TObject {
 			m_FitPars[index].SetValue(value);
 			return 0;
 		}
+		int SetParValue(std::string name,double value){
+			int index= -1;
+			FitPar* par= FindPar(index,name);
+			if(!par) return -1;
+			m_FitPars[index].SetValue(value);
+			return 0;
+		}
 		int FixPar(int index,double value){
 			if(m_FitPars.empty() || index<0 || index>=GetNPars() ) return -1;
+			m_FitPars[index].SetValue(value);
+			m_FitPars[index].Fix();
+			return 0;
+		}
+		int FixPar(std::string name,double value){
+			int index= -1;
+			FitPar* par= FindPar(index,name);
+			if(!par) return -1;
 			m_FitPars[index].SetValue(value);
 			m_FitPars[index].Fix();
 			return 0;
@@ -416,12 +413,25 @@ class FitPars : public TObject {
 			m_FitPars[index].Free();
 			return 0;
 		}
+		int FreePar(std::string name){
+			int index= -1;
+			FitPar* par= FindPar(index,name);
+			if(!par) return -1;
+			m_FitPars[index].Free();
+			return 0;
+		}
 		int LimitPar(int index,double xmin,double xmax){
 			if(m_FitPars.empty() || index<0 || index>=GetNPars() ) return -1;
 			m_FitPars[index].SetLimits(xmin,xmax);
 			return 0;
 		}
-
+		int LimitPar(std::string name,double xmin,double xmax){
+			int index= -1;
+			FitPar* par= FindPar(index,name);	
+			if(!par) return -1;
+			m_FitPars[index].SetLimits(xmin,xmax);
+			return 0;
+		}
 	private:
 		void Clear(){
 			m_FitPars.clear();	
@@ -461,21 +471,14 @@ class SpectrumPars : public TObject {
 		virtual int FreePar(int index) {return pars.FreePar(index);}
 		virtual int LimitPar(int index,double xmin,double xmax) {return pars.LimitPar(index,xmin,xmax);}
 
-		/*
-		virtual int GetModel() const = 0;
-		virtual int GetNPars() const = 0;
-		virtual double GetIntegral(double xmin,double xmax) = 0;
-		
-		static int GetParNumber() {return 0;}
-		virtual FitPar* FindPar(int& index,std::string name) = 0;
-		virtual FitPar* GetPar(int index) = 0;
-		virtual FitPars GetPars() const = 0;
-		virtual SpectrumPars* Clone() const = 0;
-		virtual int SetParValue(int index,double value) = 0;
-		virtual int FixPar(int index,double val) = 0;
-		virtual int FreePar(int index) = 0;
-		virtual int LimitPar(int index,double xmin,double xmax) = 0;	
-		*/
+
+		virtual int SetParValue(std::string name,double value){return pars.SetParValue(name,value);}
+		virtual int FixPar(std::string name,double val) {
+			if(SetParValue(name,val)<0) return -1;
+			return pars.FixPar(name,val);
+		}
+		virtual int FreePar(std::string name) {return pars.FreePar(name);}
+		virtual int LimitPar(std::string name,double xmin,double xmax) {return pars.LimitPar(name,xmin,xmax);}
 
 	protected:
 		FitPars pars;			
@@ -508,6 +511,7 @@ class FlatSpectrumPars : public SpectrumPars {
 		virtual ~FlatSpectrumPars() {};
 	public:
 		//Overridden method
+		static int GetParNumber() {return 1;}
 		virtual double GetIntegral(double xmin,double xmax) {
 			double Gamma= (pars.GetPar(1))->GetValue();
 			return MathUtils::GetPowerLawIntegral(Gamma,xmin,xmax);
@@ -516,43 +520,9 @@ class FlatSpectrumPars : public SpectrumPars {
 			return new FlatSpectrumPars(*this); 
 		}
 
-		/*
-		virtual int GetModel() const {return model;}
-		virtual int GetNPars() const {return pars.GetNPars();}
 		
-		static int GetParNumber() {return nPars;}
-		virtual FitPar* FindPar(int& index,std::string name) {
-			return pars.FindPar(index,name);
-		};
-		virtual FitPar* GetPar(int index){
-			return pars.GetPar(index);
-		}
-		virtual FitPars GetPars() const {return pars;}
-		
-		
-		virtual int SetParValue(int index,double value){
-			return pars.SetParValue(index,value);
-		}
-		virtual int FixPar(int index,double val) {
-			if(SetParValue(index,val)<0) return -1;
-			return pars.FixPar(index,val);
-		}
-
-		virtual int FreePar(int index) {
-			return pars.FreePar(index);
-		}
-
-		virtual int LimitPar(int index,double xmin,double xmax) {
-			return pars.LimitPar(index,xmin,xmax);
-		}
-		*/
-
 	protected:
-		/*
-		FitPars pars;			
-		int model;
-		static int nPars;
-		*/
+		
 	
 	ClassDef(FlatSpectrumPars,1)	
 };
@@ -572,6 +542,7 @@ class PowerLawPars : public SpectrumPars {
 		virtual ~PowerLawPars() {};
 	public:
 		//Overridden method
+		static int GetParNumber() {return 2;}
 		virtual double GetIntegral(double xmin,double xmax) {
 			double Gamma= (pars.GetPar(1))->GetValue();
 			return MathUtils::GetPowerLawIntegral(Gamma,xmin,xmax);
@@ -580,43 +551,9 @@ class PowerLawPars : public SpectrumPars {
 			return new PowerLawPars(*this); 
 		}
 
-		/*
-		virtual int GetModel() const {return model;};
-		virtual int GetNPars() const {return pars.GetNPars();}
 		
-		static int GetParNumber() {return nPars;}
-		virtual FitPar* FindPar(int& index,std::string name) {
-			return pars.FindPar(index,name);
-		};
-		virtual FitPar* GetPar(int index){
-			return pars.GetPar(index);
-		}
-		virtual FitPars GetPars() const {return pars;}
-		
-		
-		virtual int SetParValue(int index,double value){
-			return pars.SetParValue(index,value);
-		}
-		virtual int FixPar(int index,double val) {
-			if(SetParValue(index,val)<0) return -1;
-			return pars.FixPar(index,val);
-		}
-
-		virtual int FreePar(int index) {
-			return pars.FreePar(index);
-		}
-
-		virtual int LimitPar(int index,double xmin,double xmax) {
-			return pars.LimitPar(index,xmin,xmax);
-		}
-		*/
-
 	protected:
-		/*
-		FitPars pars;			
-		int model;
-		static int nPars;
-		*/
+		
 	ClassDef(PowerLawPars,1)		
 		
 };
@@ -643,6 +580,7 @@ class BrokenPowerLawsPars : public SpectrumPars {
 		virtual ~BrokenPowerLawsPars() {};
 	public:
 		//Overridden method
+		static int GetParNumber() {return 6;}
 		virtual double GetIntegral(double xmin,double xmax) {
 			double Gamma= pars.GetPar(1)->GetValue();
 			double Gamma2= pars.GetPar(2)->GetValue();
@@ -655,41 +593,9 @@ class BrokenPowerLawsPars : public SpectrumPars {
 			return new BrokenPowerLawsPars(*this); 
 		}
 
-		/*
-		virtual int GetModel() const {return model;};
-		virtual int GetNPars() const {return pars.GetNPars();}
 		
-		static int GetParNumber() {return nPars;}
-		virtual FitPar* FindPar(int& index,std::string name) {
-			return pars.FindPar(index,name);
-		};
-		virtual FitPar* GetPar(int index){
-			return pars.GetPar(index);
-		}
-		virtual FitPars GetPars() const {return pars;}
-		
-		virtual int SetParValue(int index,double value){
-			return pars.SetParValue(index,value);
-		}
-		virtual int FixPar(int index,double val) {
-			if(SetParValue(index,val)<0) return -1;
-			return pars.FixPar(index,val);
-		}
-
-		virtual int FreePar(int index) {
-			return pars.FreePar(index);
-		}
-
-		virtual int LimitPar(int index,double xmin,double xmax) {
-			return pars.LimitPar(index,xmin,xmax);
-		}
-		*/
 	protected:
-		/*
-		FitPars pars;			
-		int model;
-		static int nPars;
-		*/
+		
 	ClassDef(BrokenPowerLawsPars,1)		
 		
 };
@@ -715,6 +621,7 @@ class SmoothCutoffPowerLaws : public SpectrumPars {
 		virtual ~SmoothCutoffPowerLaws() {};
 	public:
 		//Overridden method
+		static int GetParNumber() {return 6;}
 		virtual double GetIntegral(double xmin,double xmax) {
 			return 1;
 		}
@@ -722,42 +629,9 @@ class SmoothCutoffPowerLaws : public SpectrumPars {
 			return new SmoothCutoffPowerLaws(*this); 
 		}
 		
-		/*
-		virtual int GetModel() const {return model;};
-		virtual int GetNPars() const {return pars.GetNPars();}
 		
-		static int GetParNumber() {return nPars;}
-		virtual FitPar* FindPar(int& index,std::string name) {
-			return pars.FindPar(index,name);
-		};
-		virtual FitPar* GetPar(int index){
-			return pars.GetPar(index);
-		}
-		virtual FitPars GetPars() const {return pars;}
-		
-		
-		virtual int SetParValue(int index,double value){
-			return pars.SetParValue(index,value);
-		}
-		virtual int FixPar(int index,double val) {
-			if(SetParValue(index,val)<0) return -1;
-			return pars.FixPar(index,val);
-		}
-
-		virtual int FreePar(int index) {
-			return pars.FreePar(index);
-		}
-
-		virtual int LimitPar(int index,double xmin,double xmax) {
-			return pars.LimitPar(index,xmin,xmax);
-		}
-		*/
 	protected:
-		/*
-		FitPars pars;			
-		int model;
-		static int nPars;
-		*/
+		
 	ClassDef(SmoothCutoffPowerLaws,1)		
 		
 };

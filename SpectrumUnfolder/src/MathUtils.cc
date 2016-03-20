@@ -54,7 +54,11 @@ ClassImp(Unfolder_ns::MathUtils)
 
 namespace Unfolder_ns {
 
-
+int ResoPars::nPars;
+//int ConstResoPars::nPars;
+//int LinearResoPars::nPars;
+//int Pol2ResoPars::nPars;
+int TriggerPars::nPars;
 int SpectrumPars::nPars;
 
 
@@ -95,9 +99,11 @@ double MathUtils::ResponseModel(double* x, double* par){
 		return 0;
 	}
 
+	
 	double spectrumPars[nSpectrumPars];
 	for(int i=0;i<nSpectrumPars;i++){
 		spectrumPars[i]= par[par_counter];
+		//cout<<"spectrumPars["<<i<<"]="<<spectrumPars[i]<<endl;
 		par_counter++;
 	}
 
@@ -132,7 +138,8 @@ double MathUtils::ResponseModel(double* x, double* par){
 	double biasPars[nBiasPars];
 	
 	for(int i=0;i<nBiasPars;i++){
-		biasPars[i]= par[par_counter];
+		biasPars[i]= par[par_counter];	
+		//cout<<"biasPars["<<i<<"]="<<biasPars[i]<<endl;
 		par_counter++;
 	}
 
@@ -151,16 +158,20 @@ double MathUtils::ResponseModel(double* x, double* par){
 		nSigmaPars= Unfolder_ns::Pol2ResoPars::GetParNumber();
 	}
 
+	//cout<<"nSpectrumPars="<<nSpectrumPars<<" nSigmaPars="<<nSigmaPars<<" nBiasPars"<<nBiasPars<<endl;
+
+
+
 	double sigmaPars[nSigmaPars];
 	
 	for(int i=0;i<nSigmaPars;i++){
 		sigmaPars[i]= par[par_counter];
+		//cout<<"sigmaPars["<<i<<"]="<<sigmaPars[i]<<endl;
 		par_counter++;
 	}
 
 	double sigma= ResolutionModel(&lgE_true,sigmaPars);//Relative sigma 
 	
-
 	//## Set trigger eff
 	int triggerModel= par[par_counter++];
 	int nTriggerPars= 0;
