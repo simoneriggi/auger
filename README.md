@@ -1,4 +1,6 @@
-![alt tag](share/AugerView.png)
+<p align="center">
+  <img src="share/AugerView.png" alt="Auger view"/>
+</p>
 
 # auger
 
