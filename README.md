@@ -1,3 +1,5 @@
+![alt tag](share/AugerView.png)
+
 # auger
 
 A collection of tools written for the Pierre Auger Observatory project:
